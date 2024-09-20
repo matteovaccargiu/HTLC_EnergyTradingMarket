@@ -3,9 +3,12 @@ pragma solidity ^0.8.0;
 
 import "./EnergyCredits.sol";
 import "./HTLCEnergyMarket.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+contract P2PEnergyTrading is ReentrancyGuard {
 
-contract P2PEnergyTrading {
+    address private owner;
+
     struct User {
         address meterId;
         uint256 energyProduced;
@@ -43,12 +46,23 @@ contract P2PEnergyTrading {
     event EnergyOffered(address indexed seller, uint256 amount, bytes32 hashlock, address htlcContract);
     event EnergyPurchased(address indexed buyer, address indexed seller, uint256 amount, uint256 price, bool isRenewable);
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Caller is not the owner");
+        _;
+    }
+
     constructor(address energyCreditsAddress) {
+        owner = msg.sender;
         energyCreditsContract = EnergyCredits(energyCreditsAddress);
     }
 
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "New owner cannot be the zero address");
+        owner = newOwner;
+    }
+
     function authorizeMeter(address meterId, bytes32 authKeyHash) 
-        public {
+        public onlyOwner {
         authorizedMeters[meterId] = true;
         authorizationKeyHashes[meterId] = authKeyHash;
         emit MeterAuthorized(meterId);
@@ -107,9 +121,7 @@ contract P2PEnergyTrading {
             amount,
             hashLock,
             timeLock,
-            address(energyCreditsContract),
-            address(this)
-        );
+            address(energyCreditsContract)        );
 
         users[msg.sender].energyProduced -= amount;
         offers[nextOfferId++] = EnergyOffer(msg.sender, address(htlc), isRenewable, amount);
@@ -119,7 +131,7 @@ contract P2PEnergyTrading {
 
 
 
-    function buyEnergy(uint256 offerId, uint256 price) public {
+    function buyEnergy(uint256 offerId, uint256 price) public nonReentrant {
 
         /*
         A bidder may make a bid by paying in Energy Credits 
@@ -134,7 +146,7 @@ contract P2PEnergyTrading {
    }
 
 
-    function sellEnergy(uint256 offerId, uint256 secretPrice) public {
+    function sellEnergy(uint256 offerId, uint256 secretPrice) public nonReentrant {
 
          /* 
     	At the end of the duration, the creator of the offer reveals
