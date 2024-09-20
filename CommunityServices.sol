@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "./EnergyCredits.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract CommunityServices {
+contract CommunityServices is ReentrancyGuard {
     IERC20 public energyCredits;
 
     struct Service{
@@ -11,6 +12,7 @@ contract CommunityServices {
         string name;
         address serviceProvider; 
     }
+
     mapping( uint256=> Service) services;
     uint256 numServices;
 
@@ -23,7 +25,11 @@ contract CommunityServices {
         numServices += 1;
     }
 
-    function purchaseService(uint256 idService) public {
+    function purchaseService(uint256 idService) public nonReentrant {
+        require(idService < numServices, "Service does not exist");
+        require(energyCredits.allowance(msg.sender, address(this)) >= services[idService].price, "Insufficient allowance");
+        require(energyCredits.balanceOf(msg.sender) >= services[idService].price, "Insufficient balance");
+
         energyCredits.transferFrom(msg.sender, services[idService].serviceProvider, services[idService].price);
     } 
 }
