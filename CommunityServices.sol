@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "/Users/matteovaccargiu/Desktop/HTLC_EnergyTrading_SC/EnergyCredits.sol";
-import "/Users/matteovaccargiu/Desktop/HTLC_EnergyTrading_SC/node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./EnergyCredits.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CommunityServices is ReentrancyGuard {
     IERC20 public energyCredits;
