@@ -80,12 +80,6 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(tx.origin == seller, "You are not the seller");
         require(block.number > timeLock, "Time lock not yet expired");
         require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
-
-	// avoid reentrancy attacks by using temporary auxiliary variables 
-	address previousBestBuyer = bestBuyer;
-	uint256 previousBestPrice = bestPrice;
-	bestBuyer = address(0);
-        bestPrice = 0;
 	
         if (bestPrice >= secretPrice){
             bool success = energyCredits.transferFrom(address(this), seller, amount * previousBestPrice);
@@ -98,6 +92,8 @@ contract HTLCEnergyMarket is ReentrancyGuard {
                 bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
 		require(success, "tranfer failed");
                 }
+	bestBuyer = address(0);
+        bestPrice = 0;
     }
 
     // a buyer may decide to recover the funds (to avoid having them blocked)
@@ -212,7 +208,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
         users[userAddress].isRenewableSource = isRenewable && users[userAddress].isRenewableSource  ;
 
         if (isRenewable) {
-            uint256 credits = produced * 10; // 1 credit for each 1 W produced
+            uint256 credits = produced * 10; // 10 credit for each 1 W produced
             energyCreditsContract.issueCredits(userAddress, credits);
         }
 
