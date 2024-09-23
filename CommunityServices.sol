@@ -3,28 +3,27 @@ pragma solidity ^0.8.20;
 
 import "./EnergyCredits.sol";
 import "./P2PEnergyTrading.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract CommunityServices is ReentrancyGuard {
-    IERC20 public immutable energyCredits;
-    P2PEnergyTrading public p2pET;
+    IERC20 public energyCredits;
+    P2PEnergyTrading public p2pEnergyTrading;
 
-    struct Service{
+    struct Service {
         uint256 price;
         string name;
         address serviceProvider; 
     }
 
-    mapping( uint256=> Service) services;
-    uint256 numServices;
+    mapping(uint256 => Service) public services;
+    uint256 public numServices;
 
     event ServiceAdded(uint256 serviceId, string name, uint256 price, address serviceProvider);
     event ServicePurchased(uint256 serviceId, address buyer);
 
-    constructor(address _energyCreditsAddress) {
+    constructor(address _energyCreditsAddress, address _p2pEnergyTradingAddress) {
         energyCredits = IERC20(_energyCreditsAddress);
-        p2pET = P2PEnergyTrading(_p2pETAddress);
-
+        p2pEnergyTrading = P2PEnergyTrading(_p2pEnergyTradingAddress);
     }
 
     function addService(uint256 _price, string memory _name) public {
@@ -48,10 +47,8 @@ contract CommunityServices is ReentrancyGuard {
         require(energyCredits.allowance(msg.sender, address(this)) >= service.price, "Insufficient allowance");
         require(energyCredits.balanceOf(msg.sender) >= service.price, "Insufficient balance");
 
-        bool success = energyCredits.transferFrom(msg.sender, service.serviceProvider, service.price);
-        require(success, "TrasferFrom failed");
+        energyCredits.transferFrom(msg.sender, service.serviceProvider, service.price);
 
         emit ServicePurchased(idService, msg.sender);
     } 
 }
-
