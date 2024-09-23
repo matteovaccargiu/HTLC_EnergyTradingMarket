@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CommunityServices is ReentrancyGuard {
     IERC20 public immutable energyCredits;
-    P2PEnergyTrading public p2pEnergyTrading;
+    P2PEnergyTrading public immutable p2pEnergyTrading;
 
     struct Service {
         uint256 price;
@@ -66,10 +66,12 @@ contract CommunityServices is ReentrancyGuard {
         require(idService < numServices, "Service does not exist");
         Service memory service = services[idService];
         require(service.isActive, "Service is not active");
+
         require(energyCredits.allowance(msg.sender, address(this)) >= service.price, "Insufficient allowance");
         require(energyCredits.balanceOf(msg.sender) >= service.price, "Insufficient balance");
 
-        energyCredits.transferFrom(msg.sender, service.serviceProvider, service.price);
+        bool success = energyCredits.transferFrom(msg.sender, service.serviceProvider, service.price);
+       	require(success, "tranfer failed");
 
         emit ServicePurchased(idService, msg.sender);
     } 
