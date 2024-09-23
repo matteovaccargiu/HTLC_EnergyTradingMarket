@@ -5,7 +5,7 @@ import "./EnergyCredits.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CommunityServices is ReentrancyGuard {
-    IERC20 public energyCredits;
+    IERC20 public immutable energyCredits;
 
     struct Service{
         uint256 price;
