@@ -67,7 +67,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 	require(success, "tranfer failed");
 
         if (bestPrice != 0){
-            bool success = energyCredits.transferCredits(address(this), previousBestBuyer ,amount*previousBestPrice); 
+            bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
        	    require(success, "tranfer failed");
 	}
 
@@ -83,14 +83,14 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
 	
         if (bestPrice >= secretPrice){
-            energyCredits.transferCredits(address(this), seller, amount * bestPrice);
+            energyCredits.transferFrom(address(this), seller, amount * bestPrice);
             emit SaleFinalized(seller, amount * bestPrice);
             success = true;
             }
 	
         else //refund
             if (bestPrice != 0){
-                energyCredits.transferCredits(address(this), bestBuyer ,amount*bestPrice); 
+                energyCredits.transferFrom(address(this), bestBuyer ,amount*bestPrice); 
                 }
 
         bestBuyer = address(0);
@@ -105,7 +105,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(tx.origin == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
         
-        energyCredits.transferCredits(address(this), bestBuyer ,amount*bestPrice); 
+        energyCredits.transferFrom(address(this), bestBuyer ,amount*bestPrice); 
         bestBuyer = address(0);
         bestPrice = 0;
 
