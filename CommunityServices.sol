@@ -6,7 +6,7 @@ import "./P2PEnergyTrading.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract CommunityServices is ReentrancyGuard {
-    IERC20 public energyCredits;
+    IERC20 public immutable energyCredits;
     P2PEnergyTrading public p2pEnergyTrading;
 
     struct Service {
