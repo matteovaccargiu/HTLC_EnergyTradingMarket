@@ -2,10 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "./EnergyCredits.sol";
+import "./P2PEnergyTrading.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CommunityServices is ReentrancyGuard {
     IERC20 public immutable energyCredits;
+    P2PEnergyTrading public p2pET;
 
     struct Service{
         uint256 price;
@@ -16,22 +18,40 @@ contract CommunityServices is ReentrancyGuard {
     mapping( uint256=> Service) services;
     uint256 numServices;
 
+    event ServiceAdded(uint256 serviceId, string name, uint256 price, address serviceProvider);
+    event ServicePurchased(uint256 serviceId, address buyer);
+
     constructor(address _energyCreditsAddress) {
         energyCredits = IERC20(_energyCreditsAddress);
+        p2pET = P2PEnergyTrading(_p2pETAddress);
+
     }
 
-    function addService(Service memory _service) public {
-        services[numServices] = _service;
+    function addService(uint256 _price, string memory _name) public {
+        require(p2pEnergyTrading.isUserRegistered(msg.sender), "You must be a registered user to add a service");
+        require(_price > 0, "Price must be greater than zero");
+
+        services[numServices] = Service({
+            price: _price,
+            name: _name,
+            serviceProvider: msg.sender
+        });
+
+        emit ServiceAdded(numServices, _name, _price, msg.sender);
         numServices += 1;
     }
 
     function purchaseService(uint256 idService) public nonReentrant {
         require(idService < numServices, "Service does not exist");
-        require(energyCredits.allowance(msg.sender, address(this)) >= services[idService].price, "Insufficient allowance");
-        require(energyCredits.balanceOf(msg.sender) >= services[idService].price, "Insufficient balance");
+        Service memory service = services[idService];
 
-        bool success = energyCredits.transferFrom(msg.sender, services[idService].serviceProvider, services[idService].price);
+        require(energyCredits.allowance(msg.sender, address(this)) >= service.price, "Insufficient allowance");
+        require(energyCredits.balanceOf(msg.sender) >= service.price, "Insufficient balance");
+
+        bool success = energyCredits.transferFrom(msg.sender, service.serviceProvider, service.price);
         require(success, "TrasferFrom failed");
+
+        emit ServicePurchased(idService, msg.sender);
     } 
 }
 
