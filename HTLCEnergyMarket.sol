@@ -5,16 +5,16 @@ import "./EnergyCredits.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract HTLCEnergyMarket is ReentrancyGuard {
-    address public seller;
-    uint256 public amount;
-    bytes32 public hashLock;
-    uint256 public timeLock;
-    bool public refunded;
+    address public immutable seller;
+    uint256 public immutable amount;
+    bytes32 public immutable hashLock;
+    uint256 public immutable timeLock;
+    bool public immutable refunded;
 
-    EnergyCredits public energyCredits;
-    
+    EnergyCredits public immutable energyCredits;
+
     // address of the contract allowed to interact with this contract
-    address private p2pEnergyContract;
+    address private immutable p2pEnergyContract;
 
     // list of possible buyers
     address public bestBuyer;
@@ -56,20 +56,19 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     // buyer: makes an offer to purchase the energy (participates in the auction), locking in his funds until his bid is exceeded
     
     function energyPurchaseOffer(uint256 _price) public onlyp2pEnergyContract nonReentrant{
-        require(block.timestamp <= timeLock, "Time lock expired");
+    	require(block.timestamp <= timeLock, "Time lock expired");
         require(_price > bestPrice, "The price is lower than the current best offer");
-	previousBestBuyer = bestBuyer;
-	previousBestPrice = bestPrice;
-	bestBuyer = tx.origin;
+	
+	    // avoid reentrancy attacks by using temporary auxiliary variables 
+	    address previousBestBuyer = bestBuyer;
+	    uint256 previousBestPrice = bestPrice;
+	    bestBuyer = tx.origin;
         bestPrice = _price;
-
-	bool success = energyCredits.transfer(tx.origin, address(this),amount*_price);
-	require(success, "tranfer failed");
 
         if (bestPrice != 0){
             bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
        	    require(success, "tranfer failed");
-	}
+	    }
 
         emit OfferMade(tx.origin, _price);
     }
@@ -81,20 +80,24 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(tx.origin == seller, "You are not the seller");
         require(block.timestamp > timeLock, "Time lock not yet expired");
         require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
+
+	    // avoid reentrancy attacks by using temporary auxiliary variables 
+	    address previousBestBuyer = bestBuyer;
+	    uint256 previousBestPrice = bestPrice;
+	    bestBuyer = address(0);
+        bestPrice = 0;
 	
         if (bestPrice >= secretPrice){
-            energyCredits.transferFrom(address(this), seller, amount * bestPrice);
-            emit SaleFinalized(seller, amount * bestPrice);
+            energyCredits.transferFrom(address(this), seller, amount * previousBestPrice);
+            emit SaleFinalized(seller, amount * previousBestPrice);
             success = true;
             }
 	
         else //refund
             if (bestPrice != 0){
-                energyCredits.transferFrom(address(this), bestBuyer ,amount*bestPrice); 
+                energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
                 }
 
-        bestBuyer = address(0);
-        bestPrice = 0;
         return success;
     }
 
@@ -104,12 +107,16 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(block.timestamp > timeLock, "Time lock not yet expired");
         require(tx.origin == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
-        
-        energyCredits.transferFrom(address(this), bestBuyer ,amount*bestPrice); 
-        bestBuyer = address(0);
-        bestPrice = 0;
 
-        emit RefundIssued(bestBuyer, amount * bestPrice);
+	    // avoid reentrancy attacks by using temporary auxiliary variables 
+	    address previousBestBuyer = bestBuyer;
+	    uint256 previousBestPrice = bestPrice;
+	    bestBuyer = address(0);
+        bestPrice = 0;
+        
+        energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
+
+        emit RefundIssued(previousBestBuyer, amount * previousBestPrice);
     }
 
 }
@@ -146,7 +153,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
     mapping(address => bool) public authorizedMeters;
     mapping(address => bytes32) public authorizationKeyHashes; // Hashes of authorization keys
 
-    EnergyCredits public energyCreditsContract;
+    EnergyCredits public immutable energyCreditsContract;
 
     event UserRegistered(address user, address meterId);
     event MeterAuthorized(address meterId);
@@ -154,6 +161,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
     event EnergyDataUpdated(address indexed user, uint256 produced, uint256 consumed, bool isRenewable);
     event EnergyOffered(address indexed seller, uint256 amount, bytes32 hashlock, address htlcContract);
     event EnergyPurchased(address indexed buyer, address indexed seller, uint256 amount, uint256 price, bool isRenewable);
+    event EnergyBought(uint256 offerId, address buyer, uint256 price);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Caller is not the owner");
@@ -165,13 +173,11 @@ contract P2PEnergyTrading is ReentrancyGuard {
         energyCreditsContract = EnergyCredits(energyCreditsAddress);
     }
 
-    function transferOwnership(address newOwner) public onlyOwner {
-        require(newOwner != address(0), "New owner cannot be the zero address");
-        owner = newOwner;
-    }
-
     function authorizeMeter(address meterId, bytes32 authKeyHash) 
         public onlyOwner {
+	
+	require(meterId != address(0), "Invalid meter address");
+
         authorizedMeters[meterId] = true;
         authorizationKeyHashes[meterId] = authKeyHash;
         emit MeterAuthorized(meterId);
@@ -183,6 +189,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
         public {
         require(authorizedMeters[meterId], "Meter not authorized");
         require(authorizationKeyHashes[meterId] == keccak256(abi.encodePacked(authKey)), "Invalid authorization key");
+	require(users[msg.sender].meterId == address(0), "User already registered");
 
         users[msg.sender] = User(meterId, 0, 0, false);
         emit UserRegistered(msg.sender, meterId);
@@ -231,10 +238,11 @@ contract P2PEnergyTrading is ReentrancyGuard {
         require(users[msg.sender].energyProduced >= amount, "Not enough energy produced");
 
         HTLCEnergyMarket htlc = new HTLCEnergyMarket(
-            amount,
-            hashLock,
-            timeLock,
-            address(energyCreditsContract)        );
+    	  	amount,
+    		hashLock,
+    		timeLock,
+    		address(energyCreditsContract)
+        );
 
         users[msg.sender].energyProduced -= amount;
         offers[nextOfferId++] = EnergyOffer(msg.sender, address(htlc), isRenewable, amount);
@@ -256,6 +264,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
         htlcOffer.energyPurchaseOffer(price);
 
+	emit EnergyBought(offerId, msg.sender, price);
    }
 
 
@@ -267,15 +276,16 @@ contract P2PEnergyTrading is ReentrancyGuard {
         who has bid the highest amount and which is not lower than the revealed price.
         When this happens, the transfer of the energy takes place.        
         */
+
+        require(msg.sender == offers[offerId].seller, "Only the seller can finalize the sale");
+
         address addressOffer = offers[offerId].htlcContract;
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
         bool result = htlcOffer.energyHTLCSell(secretPrice);
     
         if (result) {
             // Transfer energy to the highest bidder
-            users[htlcOffer.bestBuyer()].energyProduced += offers[offerId].amount;
-            //users[offers[offerId].seller].energyProduced -= offers[offerId].amount;
-        
+            users[htlcOffer.bestBuyer()].energyProduced += offers[offerId].amount;        
             emit EnergyPurchased(htlcOffer.bestBuyer(), offers[offerId].seller, offers[offerId].amount, htlcOffer.bestPrice(), offers[offerId].isRenewable);
         }
         else {
