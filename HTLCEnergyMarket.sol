@@ -188,6 +188,10 @@ contract P2PEnergyTrading is ReentrancyGuard {
         emit UserRegistered(msg.sender, meterId);
     }
 
+    function isUserRegistered(address user) public view returns (bool) {
+        return users[user].meterId != address(0);
+    }
+
     function updateEnergyData(
         address userAddress, 
         EnergyData memory data) 
