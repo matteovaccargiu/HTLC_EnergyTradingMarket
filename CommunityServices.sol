@@ -14,9 +14,11 @@ contract CommunityServices is ReentrancyGuard {
         uint256 price;
         string name;
         address serviceProvider; 
+        bool isActive;
     }
 
     mapping(uint256 => Service) public services;
+    mapping(address => mapping(string => bool)) public existingServices;
     uint256 public numServices;
 
     event ServiceAdded(uint256 serviceId, string name, uint256 price, address serviceProvider);
@@ -29,22 +31,32 @@ contract CommunityServices is ReentrancyGuard {
 
     function addService(uint256 _price, string memory _name) public {
         require(p2pEnergyTrading.isUserRegistered(msg.sender), "You must be a registered user to add a service");
+        require(!existingServices[msg.sender][_name], "Service already exists");
         require(_price > 0, "Price must be greater than zero");
 
         services[numServices] = Service({
             price: _price,
             name: _name,
-            serviceProvider: msg.sender
+            serviceProvider: msg.sender,
+            isActive: true
         });
 
         emit ServiceAdded(numServices, _name, _price, msg.sender);
+        existingServices[msg.sender][_name] = true;
         numServices += 1;
+    }
+
+    function removeService(uint256 idService) public {
+        require(idService < numServices, "Service does not exist");
+        Service storage service = services[idService];
+        require(msg.sender == service.serviceProvider, "Only the service provider can remove the service");
+        service.isActive = false;
     }
 
     function purchaseService(uint256 idService) public nonReentrant {
         require(idService < numServices, "Service does not exist");
         Service memory service = services[idService];
-
+        require(service.isActive, "Service is not active");
         require(energyCredits.allowance(msg.sender, address(this)) >= service.price, "Insufficient allowance");
         require(energyCredits.balanceOf(msg.sender) >= service.price, "Insufficient balance");
 
