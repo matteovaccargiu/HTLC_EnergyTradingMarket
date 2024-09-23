@@ -59,10 +59,10 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     	require(block.timestamp <= timeLock, "Time lock expired");
         require(_price > bestPrice, "The price is lower than the current best offer");
 	
-	    // avoid reentrancy attacks by using temporary auxiliary variables 
-	    address previousBestBuyer = bestBuyer;
-	    uint256 previousBestPrice = bestPrice;
-	    bestBuyer = tx.origin;
+	// avoid reentrancy attacks by using temporary auxiliary variables 
+	address previousBestBuyer = bestBuyer;
+	uint256 previousBestPrice = bestPrice;
+	bestBuyer = tx.origin;
         bestPrice = _price;
 
         if (bestPrice != 0){
@@ -81,24 +81,23 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(block.timestamp > timeLock, "Time lock not yet expired");
         require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
 
-	    // avoid reentrancy attacks by using temporary auxiliary variables 
-	    address previousBestBuyer = bestBuyer;
-	    uint256 previousBestPrice = bestPrice;
-	    bestBuyer = address(0);
+	// avoid reentrancy attacks by using temporary auxiliary variables 
+	address previousBestBuyer = bestBuyer;
+	uint256 previousBestPrice = bestPrice;
+	bestBuyer = address(0);
         bestPrice = 0;
 	
         if (bestPrice >= secretPrice){
-            energyCredits.transferFrom(address(this), seller, amount * previousBestPrice);
+            bool success = energyCredits.transferFrom(address(this), seller, amount * previousBestPrice);
+	    require(success, "tranfer failed");
             emit SaleFinalized(seller, amount * previousBestPrice);
-            success = true;
             }
 	
         else //refund
             if (bestPrice != 0){
-                energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
+                bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
+		require(success, "tranfer failed");
                 }
-
-        return success;
     }
 
     // a buyer may decide to recover the funds (to avoid having them blocked)
@@ -108,13 +107,14 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(tx.origin == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
 
-	    // avoid reentrancy attacks by using temporary auxiliary variables 
-	    address previousBestBuyer = bestBuyer;
-	    uint256 previousBestPrice = bestPrice;
-	    bestBuyer = address(0);
+	// avoid reentrancy attacks by using temporary auxiliary variables 
+	address previousBestBuyer = bestBuyer;
+	uint256 previousBestPrice = bestPrice;
+	bestBuyer = address(0);
         bestPrice = 0;
         
-        energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
+        bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
+	require(success, "tranfer failed");
 
         emit RefundIssued(previousBestBuyer, amount * previousBestPrice);
     }
@@ -123,7 +123,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 
 contract P2PEnergyTrading is ReentrancyGuard {
 
-    address private owner;
+    address private immutable owner;
 
     struct User {
         address meterId;
