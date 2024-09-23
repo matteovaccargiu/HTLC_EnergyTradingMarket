@@ -30,7 +30,8 @@ contract CommunityServices is ReentrancyGuard {
         require(energyCredits.allowance(msg.sender, address(this)) >= services[idService].price, "Insufficient allowance");
         require(energyCredits.balanceOf(msg.sender) >= services[idService].price, "Insufficient balance");
 
-        energyCredits.transferFrom(msg.sender, services[idService].serviceProvider, services[idService].price);
+        bool success = energyCredits.transferFrom(msg.sender, services[idService].serviceProvider, services[idService].price);
+        require(success, "TrasferFrom failed");
     } 
 }
 
