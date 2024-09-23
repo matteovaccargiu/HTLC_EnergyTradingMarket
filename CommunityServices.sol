@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "./EnergyCredits.sol";
 import "./P2PEnergyTrading.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CommunityServices is ReentrancyGuard {
     IERC20 public immutable energyCredits;
