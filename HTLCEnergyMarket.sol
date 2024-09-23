@@ -29,7 +29,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         seller = tx.origin;
         amount = _amount;
         hashLock = _hashLock;
-        timeLock = block.timestamp + _timeLock;
+        timeLock = block.number + _timeLock;
         refunded = false;
         energyCredits = EnergyCredits(_energyCredits);
         p2pEnergyContract = msg.sender;
@@ -56,7 +56,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     // buyer: makes an offer to purchase the energy (participates in the auction), locking in his funds until his bid is exceeded
     
     function energyPurchaseOffer(uint256 _price) public onlyp2pEnergyContract nonReentrant{
-    	require(block.timestamp <= timeLock, "Time lock expired");
+    	require(block.number <= timeLock, "Time lock expired");
         require(_price > bestPrice, "The price is lower than the current best offer");
 	
 	// avoid reentrancy attacks by using temporary auxiliary variables 
@@ -78,7 +78,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 
     function energyHTLCSell(uint256 secretPrice) public onlyp2pEnergyContract nonReentrant returns(bool success){
         require(tx.origin == seller, "You are not the seller");
-        require(block.timestamp > timeLock, "Time lock not yet expired");
+        require(block.number > timeLock, "Time lock not yet expired");
         require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
 
 	// avoid reentrancy attacks by using temporary auxiliary variables 
@@ -103,7 +103,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     // a buyer may decide to recover the funds (to avoid having them blocked)
 
     function refund() public onlyp2pEnergyContract nonReentrant {
-        require(block.timestamp > timeLock, "Time lock not yet expired");
+        require(block.number > timeLock, "Time lock not yet expired");
         require(tx.origin == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
 
