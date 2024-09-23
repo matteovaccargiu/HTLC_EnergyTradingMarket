@@ -58,11 +58,18 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     function energyPurchaseOffer(uint256 _price) public onlyp2pEnergyContract nonReentrant{
         require(block.timestamp <= timeLock, "Time lock expired");
         require(_price > bestPrice, "The price is lower than the current best offer");
-        energyCredits.transferCredits(tx.origin, address(this),amount*_price);
-        if (bestPrice != 0){
-            energyCredits.transferCredits(address(this), bestBuyer ,amount*bestPrice); }
-        bestBuyer = tx.origin;
+	previousBestBuyer = bestBuyer;
+	previousBestPrice = bestPrice;
+	bestBuyer = tx.origin;
         bestPrice = _price;
+
+	bool success = energyCredits.transfer(tx.origin, address(this),amount*_price);
+	require(success, "tranfer failed");
+
+        if (bestPrice != 0){
+            bool success = energyCredits.transferCredits(address(this), previousBestBuyer ,amount*previousBestPrice); 
+       	    require(success, "tranfer failed");
+	}
 
         emit OfferMade(tx.origin, _price);
     }
