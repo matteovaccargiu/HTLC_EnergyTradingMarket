@@ -293,7 +293,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
         address addressOffer = offers[offerId].htlcContract;
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
         bool result = htlcOffer.energyHTLCSell(secretPrice);
-    
+
         if (result) {
             // Transfer energy to the highest bidder
             users[htlcOffer.bestBuyer()].energyProduced += offers[offerId].amount;        
