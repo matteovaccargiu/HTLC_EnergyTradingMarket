@@ -51,6 +51,15 @@ contract CommunityServices is ReentrancyGuard {
         Service storage service = services[idService];
         require(msg.sender == service.serviceProvider, "Only the service provider can remove the service");
         service.isActive = false;
+        existingServices[msg.sender][service.name] = false;
+    }
+
+    function reactivateService(uint256 idService) public {
+        require(idService < numServices, "Service does not exist");
+        Service storage service = services[idService];
+        require(msg.sender == service.serviceProvider, "Only the service provider can reactivate the service");
+        require(!service.isActive, "Service is already active");
+        service.isActive = true;
     }
 
     function purchaseService(uint256 idService) public nonReentrant {
