@@ -24,9 +24,10 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         uint256 _amount,
         bytes32 _hashLock,
         uint256 _timeLock,
-        address _energyCredits
+        address _energyCredits,
+        address _seller
     ) {
-        seller = tx.origin;
+        seller = _seller;
         amount = _amount;
         hashLock = _hashLock;
         timeLock = block.number + _timeLock;
@@ -55,14 +56,14 @@ contract HTLCEnergyMarket is ReentrancyGuard {
     // seller: hides the price of energy until the end of the timeLock
     // buyer: makes an offer to purchase the energy (participates in the auction), locking in his funds until his bid is exceeded
     
-    function energyPurchaseOffer(uint256 _price) public onlyp2pEnergyContract nonReentrant{
+    function energyPurchaseOffer(uint256 _price, address _buyer) public onlyp2pEnergyContract nonReentrant{
     	require(block.number <= timeLock, "Time lock expired");
         require(_price > bestPrice, "The price is lower than the current best offer");
 	
 		// avoid reentrancy attacks by using temporary auxiliary variables 
 		address previousBestBuyer = bestBuyer;
 		uint256 previousBestPrice = bestPrice;
-		bestBuyer = tx.origin;
+		bestBuyer = _buyer;
         bestPrice = _price;
 
         if (bestPrice != 0){
@@ -70,16 +71,16 @@ contract HTLCEnergyMarket is ReentrancyGuard {
        	    require(success, "tranfer failed");
 	    }
 
-        emit OfferMade(tx.origin, _price);
+        emit OfferMade(_buyer, _price);
     }
 
     // At the end of the timelock the secret is revealed (energy price decided by the seller) and the highest offer is evaluated
     // if the highest bid is not greater than or equal to the secret price, the funds are returned and the energy is not sold
 
-    function energyHTLCSell(uint256 secretPrice) public onlyp2pEnergyContract nonReentrant returns (bool success) {
-        require(msg.sender == seller, "You are not the seller");
+    function energyHTLCSell(uint256 _secretPrice, address _seller) public onlyp2pEnergyContract nonReentrant returns (bool success) {
+        require(seller == _seller, "You are not the seller");
         require(block.number > timeLock, "Time lock not yet expired");
-        require(keccak256(abi.encodePacked(secretPrice)) == hashLock, "Invalid secret");
+        require(keccak256(abi.encodePacked(_secretPrice)) == hashLock, "Invalid secret");
 
         // Conservare i valori attuali prima di resettarli
         address previousBestBuyer = bestBuyer;
@@ -109,9 +110,9 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 
     // a buyer may decide to recover the funds (to avoid having them blocked)
 
-    function refund() public onlyp2pEnergyContract nonReentrant {
+    function refund(_user) public onlyp2pEnergyContract nonReentrant {
         require(block.number > timeLock, "Time lock not yet expired");
-        require(tx.origin == bestBuyer, "nothing to refund");
+        require(_user == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
 
 		// avoid reentrancy attacks by using temporary auxiliary variables 
@@ -172,7 +173,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
     event EnergyDataUpdated(address indexed user, uint256 produced, uint256 consumed, bool isRenewable);
     event EnergyOffered(address indexed seller, uint256 amount, bytes32 hashlock, address htlcContract);
     event EnergyPurchased(address indexed buyer, address indexed seller, uint256 amount, uint256 price, bool isRenewable);
-    event EnergyBought(uint256 offerId, address buyer, uint256 price);
+    event EnergyBuyBid(uint256 offerId, address buyer, uint256 price);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Caller is not the owner");
@@ -252,7 +253,8 @@ contract P2PEnergyTrading is ReentrancyGuard {
     	  	amount,
     		hashLock,
     		timeLock,
-    		address(energyCreditsContract)
+    		address(energyCreditsContract),
+            msg.sender
         );
 
         users[msg.sender].energyProduced -= amount;
@@ -267,15 +269,15 @@ contract P2PEnergyTrading is ReentrancyGuard {
 
         /*
         A bidder may make a bid by paying in Energy Credits 
-        (providing the contractual authorisation to move the tokens). 
+        (providing the authorisation to move the tokens). 
         */
 
         address addressOffer = offers[offerId].htlcContract;
 
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
-        htlcOffer.energyPurchaseOffer(price);
-
-	emit EnergyBought(offerId, msg.sender, price);
+        htlcOffer.energyPurchaseOffer(price, msg.sender);
+        energyCreditsContract.transferFrom(msg.sender, addressOffer, price*HTLCEnergyMarket.amount);
+    	emit EnergyBuyBid(offerId, msg.sender, price);
    }
 
 
