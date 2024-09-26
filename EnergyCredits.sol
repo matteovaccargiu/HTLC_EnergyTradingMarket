@@ -33,13 +33,11 @@ contract EnergyCredits is ERC20 {
     }
 
     function transfer(address to, uint256 amount) public override returns (bool) {
-        require(msg.sender == _msgSender(), "Can only transfer from own account");
         require(to != address(0), "Invalid to address");
         return super.transfer(to, amount);
     }
 
     function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
-        require(from == _msgSender(), "Can only transfer from own account");
         require(to != address(0), "Invalid to address");
         return super.transferFrom(from, to, amount);
     }
