@@ -90,7 +90,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         bestBuyer = address(0);
         bestPrice = 0;
 
-        if (previousBestPrice >= secretPrice) {
+        if (previousBestPrice >= _secretPrice) {
             // Trasferire i token al venditore
             bool transferSuccess = energyCredits.transfer(seller, amount * previousBestPrice);
             require(transferSuccess, "Transfer to seller failed");
@@ -110,7 +110,7 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 
     // a buyer may decide to recover the funds (to avoid having them blocked)
 
-    function refund(_user) public onlyp2pEnergyContract nonReentrant {
+    function refund(address _user) public onlyp2pEnergyContract nonReentrant {
         require(block.number > timeLock, "Time lock not yet expired");
         require(_user == bestBuyer, "nothing to refund");
         require(bestPrice > 0 , "nothing to refund");
@@ -276,7 +276,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
 
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
         htlcOffer.energyPurchaseOffer(price, msg.sender);
-        energyCreditsContract.transferFrom(msg.sender, addressOffer, price*HTLCEnergyMarket.amount);
+        energyCreditsContract.transferFrom(msg.sender, addressOffer, price * htlcOffer.amount());
     	emit EnergyBuyBid(offerId, msg.sender, price);
    }
 
@@ -294,7 +294,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
 
         address addressOffer = offers[offerId].htlcContract;
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
-        bool result = htlcOffer.energyHTLCSell(secretPrice);
+        bool result = htlcOffer.energyHTLCSell(secretPrice, msg.sender);
 
         if (result) {
             // Transfer energy to the highest bidder
