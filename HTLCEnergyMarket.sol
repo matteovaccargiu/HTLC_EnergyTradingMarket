@@ -66,10 +66,15 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 		bestBuyer = _buyer;
         bestPrice = _price;
 
-        if (bestPrice != 0){
-            bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
-       	    require(success, "tranfer failed");
-	    }
+        uint256 totalAmount = amount * _price;
+        bool success = energyCredits.transferFrom(_buyer, address(this), totalAmount);
+        require(success, "Token transfer failed");
+
+
+        if (previousBestPrice != 0){
+            bool refundSuccess = energyCredits.transfer(previousBestBuyer, amount * previousBestPrice);
+            require(refundSuccess, "Refund to previous buyer failed");
+        }
 
         emit OfferMade(_buyer, _price);
     }
@@ -82,29 +87,27 @@ contract HTLCEnergyMarket is ReentrancyGuard {
         require(block.number > timeLock, "Time lock not yet expired");
         require(keccak256(abi.encodePacked(_secretPrice)) == hashLock, "Invalid secret");
 
-        // Conservare i valori attuali prima di resettarli
         address previousBestBuyer = bestBuyer;
         uint256 previousBestPrice = bestPrice;
 
-        // Resettare lo stato prima delle chiamate esterne per prevenire reentrancy
         bestBuyer = address(0);
         bestPrice = 0;
 
         if (previousBestPrice >= _secretPrice) {
-            // Trasferire i token al venditore
+            // Transfer tokens to the seller
             bool transferSuccess = energyCredits.transfer(seller, amount * previousBestPrice);
             require(transferSuccess, "Transfer to seller failed");
             emit SaleFinalized(seller, amount * previousBestPrice);
             success = true;
         } else {
-            // Rimborso al compratore se esiste un'offerta precedente
+            // Refund the previousBestBuyer if exist
             if (previousBestPrice != 0) {
                 bool refundSuccess = energyCredits.transfer(previousBestBuyer, amount * previousBestPrice);
                 require(refundSuccess, "Refund to buyer failed");
             }
             success = false;
-        }
-    return success;
+            }
+        return success;
     }
 
 
@@ -121,8 +124,8 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 		bestBuyer = address(0);
         bestPrice = 0;
         
-        bool success = energyCredits.transferFrom(address(this), previousBestBuyer ,amount*previousBestPrice); 
-		require(success, "tranfer failed");
+        bool success = energyCredits.transfer(previousBestBuyer, amount * previousBestPrice);
+        require(success, "Refund failed");
 
         emit RefundIssued(previousBestBuyer, amount * previousBestPrice);
     }
