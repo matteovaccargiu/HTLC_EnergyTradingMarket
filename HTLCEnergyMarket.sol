@@ -135,7 +135,6 @@ contract HTLCEnergyMarket is ReentrancyGuard {
 
 
 
-
 contract P2PEnergyTrading is ReentrancyGuard {
 
     address private immutable owner;
@@ -214,9 +213,10 @@ contract P2PEnergyTrading is ReentrancyGuard {
         return users[user].meterId != address(0);
     }
 
+
     function updateEnergyData(
         address userAddress, 
-        EnergyData memory data) 
+        EnergyData memory data)    
         public {
         require(users[userAddress].meterId == msg.sender, "Meter ID not valid");
 
@@ -224,7 +224,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
                     (data.produced, data.consumed, data.isRenewable);
         users[userAddress].energyProduced += produced;
         users[userAddress].energyConsumed += consumed;
-        users[userAddress].isRenewableSource = isRenewable && users[userAddress].isRenewableSource  ;
+        users[userAddress].isRenewableSource = isRenewable && users[userAddress].isRenewableSource;
 
         if (isRenewable) {
             uint256 credits = produced * 10; // 10 credit for each 1 W produced
@@ -233,6 +233,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
 
         emit EnergyDataUpdated(userAddress, produced, consumed, isRenewable);
     }
+
 
 
     // an ‘object’ offer includes an HTLC contract that secretly sets the rules 
@@ -279,7 +280,7 @@ contract P2PEnergyTrading is ReentrancyGuard {
 
         HTLCEnergyMarket htlcOffer = HTLCEnergyMarket(addressOffer);
         htlcOffer.energyPurchaseOffer(price, msg.sender);
-        energyCreditsContract.transferFrom(msg.sender, addressOffer, price * htlcOffer.amount());
+        //energyCreditsContract.transferFrom(msg.sender, addressOffer, price * htlcOffer.amount());
     	emit EnergyBuyBid(offerId, msg.sender, price);
    }
 
@@ -318,3 +319,4 @@ contract P2PEnergyTrading is ReentrancyGuard {
     }
 
 }
+
