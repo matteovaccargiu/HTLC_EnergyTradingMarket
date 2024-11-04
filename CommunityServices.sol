@@ -76,3 +76,4 @@ contract CommunityServices is ReentrancyGuard {
         emit ServicePurchased(idService, msg.sender);
     } 
 }
+
