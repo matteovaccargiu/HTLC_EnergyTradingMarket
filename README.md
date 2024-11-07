@@ -9,7 +9,7 @@ This contract implements the HTLC (Hashed Time-Locked Contract) logic for energy
 
 ### Key Features:
 
- **Bidding system:** Buyers place bids for energy until the time lock expires.
+- **Bidding system:** Buyers place bids for energy until the time lock expires.
 - **Secret energy price:** Sellers hide the price using a hash lock, which is revealed at the end of the time lock.
 - **HTLC mechanism:** Securely locks and transfers funds until the correct conditions are met.
 - **Refund mechanism:** Allows buyers to refund their bids if the conditions aren't met.
